@@ -1,221 +1,300 @@
+'''Importing libraries'''
 import pandas as pd
 import numpy as np
-import seaborn as sn
-import matplotlib.pyplot as plt
+import datetime
 
+'''Importing the dataset'''
+lc=pd.read_csv('LoanStats3a.csv', skiprows=1, low_memory=False)
 
-'''loading the dataset'''
-lending=pd.read_csv('lending.csv', low_memory=False)
-'''original dataset: 42,538 x 142 most of them are either blanks or irrelevant
-to the current analysis as a result of the first review of the dataset.'''
-print(lending.shape)
-'''previewing the data'''
-lending.head(10)
+'''the dimension of the original dataset.'''
+rows=lc.shape[0]
+columns=lc.shape[1]
+
+'''Missing values: columns'''
+lc.isnull().sum() #to get the count of missing values in each column
+lc.isnull().mean() #to get the % of NaNs in each column.
+lc.columns[lc.isnull().mean() < 0.5]#the list of columns with less than 50% NaNs
+lc1=lc[lc.columns[lc.isnull().mean() < 0.5]]#this subset the data to keep those
+                                            #with few than 50% NaNs in their
+                                            #columns.
+'''
+Missing Values: Rows:
+This finds out if a row has NaN by using isnull() 
+then it takes row-wise sum of the NaNs using sum(axis=0)
+then it drops the rows with more than 20% NaNs'''
+pct_row_null = lc1.isnull().sum(axis=1) / lc1.shape[1]
+missing_in_rows = pct_row_null[pct_row_null > 0.20].index
+lc1.drop(missing_in_rows, axis=0, inplace=True)
 
 '''
-*********************Missing Values***************************
-Execute the code in the cell below to identify the columns with missing values.
-can be shown as: 'N/A', "?", blank cell, or "0"'''
+Investigating the dataset, lc1, we have derived so far.'''
+lc1.isnull().sum() #to get the count of NaNs in each of the remaining columns.
+lc1.isnull().mean() 
 
-c1=lending['loan_amnt'].value_counts(sort=False, dropna=False)
-c2=lending['funded_amnt'].value_counts(sort=False, dropna=False)
-c3=lending['Fund_diff'].value_counts(sort=False, dropna=False)
-c4=lending['funded_amnt_inv'].value_counts(sort=False, dropna=False)
-c5=lending['term'].value_counts(sort=False, dropna=False)
-c6=lending['int_rate'].value_counts(sort=False, dropna=False)
-c7=lending['installment'].value_counts(sort=False, dropna=False)
-c8=lending['grade'].value_counts(sort=False, dropna=False)
-c9=lending['sub_grade'].value_counts(sort=False, dropna=False)
-c10=lending['emp_length'].value_counts(sort=False, dropna=False)
-c11=lending['home_ownership'].value_counts(sort=False, dropna=False)
-c12=lending['annual_inc'].value_counts(sort=False, dropna=False)
-c13=lending['verification_status'].value_counts(sort=False, dropna=False)
-c14=lending['loan_status'].value_counts(sort=False, dropna=False)
-c15=lending['purpose'].value_counts(sort=False, dropna=False)
-c16=lending['dti'].value_counts(sort=False, dropna=False)
-c17=lending['delinq_2yrs'].value_counts(sort=False, dropna=False)
-c18=lending['earliest_cr_line'].value_counts(sort=False, dropna=False)
-c19=lending['issue_d'].value_counts(sort=False, dropna=False)
-c20=lending['Cred_hist'].value_counts(sort=False, dropna=False)
-c21=lending['inq_last_6mths'].value_counts(sort=False, dropna=False)
-c22=lending['mths_since_last_delinq'].value_counts(sort=False, dropna=False)
-c23=lending['mths_since_last_record'].value_counts(sort=False, dropna=False)
-c24=lending['open_acc'].value_counts(sort=False, dropna=False)
-c25=lending['pub_rec'].value_counts(sort=False, dropna=False)
-c26=lending['revol_bal'].value_counts(sort=False, dropna=False)
-c27=lending['revol_util'].value_counts(sort=False, dropna=False)
-c28=lending['total_acc'].value_counts(sort=False, dropna=False)
-c29=lending['out_prncp_inv'].value_counts(sort=False, dropna=False)
-c30=lending['total_pymnt'].value_counts(sort=False, dropna=False)
-c31=lending['total_rec_prncp'].value_counts(sort=False, dropna=False)
-c32=lending['total_rec_int'].value_counts(sort=False, dropna=False)
-c33=lending['total_rec_late_fee'].value_counts(sort=False, dropna=False)
-c34=lending['recoveries'].value_counts(sort=False, dropna=False)
-c35=lending['collection_recovery_fee'].value_counts(sort=False, dropna=False)
-c36=lending['last_pymnt_amnt'].value_counts(sort=False, dropna=False)
-c37=lending['pub_rec_bankruptcies'].value_counts(sort=False, dropna=False)
-c38=lending['settlement_status'].value_counts(sort=False, dropna=False)
-c39=lending['settlement_percentage'].value_counts(sort=False, dropna=False)
-c40=lending['settlement_term'].value_counts(sort=False, dropna=False)
-c41=lending['Cred_hist'].value_counts(sort=False, dropna=False)
+'''Remaining columns with missing values:
+emp_title
+emp_length
+desc
+title
+revol_util
+last_pymnt_d
+last_credit_pull_d
+collections_12_mths_ex_med
+chargeoff_within_12_mths
+pub_rec_bankruptcies
+tax_liens'''
+
+'''I'll keep the following variables from the list:
+emp_length
+revol_util
+last_pymnt_d
+last_credit_pull_d
+pub_rec_bankruptcies
+tax_liens'''
 
 '''
-Droping some columns that have too many missing values; they're not useful to 
-the analysis.'''
-#droping the columns:
-#these 2 are dates that were used to create another variable; not important
-#on their own.
-lending.drop('earliest_cr_line', axis=1, inplace=True)#c18
-lending.drop("issue_d",axis=1, inplace=True) #c19
-#26,897 data points are missing.
-lending.drop("mths_since_last_delinq",axis=1, inplace=True)#c22
-#This can be dropped; 38,855 of the 42,506 are missing.
-lending.drop("mths_since_last_record",axis=1, inplace=True)#c23
-#can be dropped; all 42,506 points are the same, 0.
-lending.drop("out_prncp_inv",axis=1, inplace=True)#c29
-#c38, c39 and 640, each has 42,346 data points missing.
-lending.drop("settlement_status",axis=1, inplace=True)#c38
-lending.drop("settlement_percentage",axis=1, inplace=True)#c39
-lending.drop("settlement_term",axis=1, inplace=True)#c40
+The list of variables below will be removed from consideration becasue they are
+important to the analysis'''
+lc2=lc1.drop(['emp_title', 'desc', 'title', 'collections_12_mths_ex_med', 
+              'chargeoff_within_12_mths'], axis=1)
 
-'''lending2=lending1.copy()'''
+lc2.isnull().mean()
+lc2.isnull().sum()
+
+
+'''Cleaning
+removing % from the int_rate variable'''
+lc2['int_rate'] = lc2['int_rate'].str.rstrip('%').astype('float')/100
+lc2['revol_util'] = lc2['revol_util'].str.rstrip('%').astype('float')/100
+
+
+'''Replacing missing values'''
+'''1. Employment length:'''
+lc2['emp_length'].describe()
+lc2['emp_length'].value_counts(dropna=False)
+
+'''2. Percent of Revolving Credit Utilized'''
+lc2['revol_util'].describe()
+lc2['revol_util'].value_counts(dropna=False)
+mean=lc2['revol_util'].mean()
+lc2['revol_util'].replace(np.nan, mean, inplace=True)
+
+'''3. Last Payment Date: replacing the missing values'''
+lc2['last_pymnt_d'].describe()
+lc2['last_pymnt_d'].value_counts(dropna=False)
+
+'''4. Last Credit Pullted date:'''
+lc2['last_credit_pull_d'].describe()
+lc2['last_credit_pull_d'].value_counts(dropna=False)
+
+'''5. Public Record Bankruptcies:'''
+lc2['pub_rec_bankruptcies'].describe()
+lc2['pub_rec_bankruptcies'].value_counts(dropna=False)
+
+
+'''6. Tax Liens'''
+lc2['tax_liens'].describe()
+lc2['tax_liens'].value_counts(dropna=False)
+
+'''setting the loan issue date, issue_d, to datetime format'''
+lc2['issue_d']=pd.to_datetime(lc2.issue_d)
+lc2['last_pymnt_d ']=pd.to_datetime(lc2.last_pymnt_d)
+lc2['last_credit_pull_d']=pd.to_datetime(lc2.last_credit_pull_d)
+
+
+
+'''setting the loan issue date, issue_d, as the index of the dataframe'''
+
+lc2['issue_d'] = pd.to_datetime(lc2['issue_d'])
+lc2['issue_d']= lc2['issue_d'].apply(lambda x: x.strftime('%m-%Y')) 
+
+
+lc2=lc2.set_index('issue_d')
+type(lc2.index)
+lc2.index=pd.to_datetime(lc2.index)
+type(lc2.index)
+lc2.head
+
+'''to get the count for each month in the dataset'''
+lc2.resample('M').count()
+lc2.resample('M').mean()
+
+
+avg=lc2.reset_index(lc2.sort_values(lc2.set_index('issue_d').groupby(level=0)['loan_amnt'].agg({'avg_monthly':np.average,
+             'monthly_count':'count'})))
+    
+avg.to_csv('lc_avg_series.csv', index=True, header=True)
+
 
 ****************************************************************************
-****************************************************************************
-************changing variable types*****************'''
-
-lending2=pd.read_csv('lending2.csv', low_memory=False)
-lending2.columns
-(lending2.astype(np.float) == 'NaN').any()##Fix this 
+*****************************USING R FOR TIME SERIES ANALYSIS***************
 
 
-'''1. recoding the variable loanhome_ownership'''
-status = {'Does not meet the credit policy. Status:Charged Off':1, 
-                'Does not meet the credit policy. Status:Fully Paid': 0,
-                'Fully Paid': 0, 'Charged Off':1}
-lending2['charged_off'] = [status[x] for x in lending2['loan_status']]
-lending2['charged_off'].value_counts()
 
-'''2. Recode term using list comprehension as follows: 
-    "60 months" with '60 Months'; "36 months" with '36 Months'
-'''
-#createing a dictionary:
-terms = {' 60 months':'60 Months', ' 36 months': '36 Months'}
-#building a list comprehension:
-lending2['term'] = [terms[x] for x in lending2['term']]
-lending2['term'].value_counts()
-        
-'''reconstructing the employment history variable:
-years = {'10+ years':10, '6 years': 6, '< 1 year': 1, '4 years': 4, '3 years':3,
-         '2 years': 2, '1 year': 1, '9 years': 9, '5 years': 5, '7 years': 7, 
-         '8 years': 8}
-lending_c['emp_length'] = [years[x] for x in lending_c['emp_length']]
-lending_c['emp_length'].value_counts()'''
+lending = read.csv("lc_avg_series.csv", header=T)
+count=lending$monthly_count
 
-'''3. recoding the variable verification_status'''
-verification = {'Source Verified':'Verified', 'Not Verified': 'Not Verified', 
-                'Verified': 'Verified'}
-lending2['verification_status'] = [verification[x] for x in lending2['verification_status']]
-lending2['verification_status'].value_counts()
+#to see the columns in the data.
+names(lending)
+lending
 
-'''4. recoding home_ownership'''
-homes = {'NONE':'No', 'RENT':'No', 'OWN':'Yes', 'MORTGAGE':'Yes', 'OTHER':'No'}
-lending2['home_ownership'] = [homes[x] for x in lending['home_ownership']]
-lending2['home_ownership'].value_counts()
+#making the data into a timeseries
+count=ts(count, start=c(2007,6), frequency=12)
+count
+t(count)
 
-lending2.to_csv('lending3.csv', index=False, header=True)
+ts.plot(count,ylab="Number of Loans Issueed Per Monthly")
+ts.plot(lending)
+
+##1.Let's estimate the trend in the data using Moving Average.
+##Let's first create equally spaced time points for fitting trends; recall these are
+###monthly data.
+time.pts = c(1:length(count))
+time.pts = c(time.pts - min(time.pts))/max(time.pts)
+
+###Now, let's fit the trend using moving average:
+#ksmooth() is used for kernel regression. 
+mav.fit = ksmooth(time.pts, count, kernel = "box")
+
+#with the ts command, I transform the fitted trend into a time series.
+count.fit.mav = ts(mav.fit$y, start=c(2007,6), frequency=12)
 
 
-'''
-****************************************************************************
-****************************************************************************
-To get to lending3, I had to do some manual processing that included removing 
-percentaage signs and convert the values into decimals. I used Excel for that
-so the processing was not all done in Python.
-Exploratory Data Analysis:
-  '''
-lending3=pd.read_csv('lending3.csv', low_memory=False)
-lending3.head()
-lending3.dtypes
-lending3.shape
-lending3.columns
 
-'''categorical variables''''
-#Converting to object:
-lending3['loan_status']=lending3["loan_status"].astype(object)
+###Looking for a trend in the data
+ts.plot(count, ylab="Monthly Loan Counts")#plotting the time series
+lines(count.fit.mav, lwd=2, col= "purple") #adding the moving average line the time series plot.
+abline(count.fit.mav[1], 0, lwd=2, col="blue")#this compares the fitted trend with the moving avearage trend
+#################################################################################################################
 
-lending3['loan_status']=lending3["loan_status"].astype('category', copy=False)
-lending3['loan_status'].dtypes
-lending3['loan_status'].value_counts()
-
-lending3['verification_status']=lending3["verification_status"].astype('category')
-lending3['term']=lending3["term"].astype('category')
-lending3['emp_length']=lending3["emp_length"].astype('category')
-lending3['home_ownership']=lending3["home_ownership"].astype('category')
-lending3['grade']=lending3["grade"].astype('category')
-lending3['purpose']=lending3["purpose"].astype('category')
-
-#Getting the value count
-lending3['loan_status'].value_counts()
-lending3['verification_status'].value_counts()
-lending3['term'].value_counts()
-lending3['emp_length'].value_counts()
-lending3['home_ownership'].value_counts()
-lending3['home_ownership'].value_counts()
-lending3['grade'].value_counts()
-lending3['purpose'].value_counts()
-
-cat_columns=['term', 'grade', 'sub_grade', 'emp_length', 'home_ownership',
-             'verification_status', 'loan_status', 'purpose']
-
-categoricals=lending3[['grade', 'sub_grade', 'home_ownership', 'purpose', 'loan_status',
-              'term', 'verification_status']]
-
-num_cols = ['loan_amnt','funded_amnt','Fund_diff', 'funded_amnt_inv','emp_length',
-            'delinq_2yrs','Cred_hist', 'open_acc', 'revol_bal','total_acc', 
-            'total_pymnt', 'total_pymnt_inv', 'total_rec_prncp','total_rec_int', 
-            'total_rec_late_fee', 'recoveries', 'collection_recovery_fee', 'last_pymnt_amnt',
-            'int_rate', 'installment', 'annual_inc', 'dti','revol_util', 'pub_rec_bankruptcies']
-
-numeric_cols = lending3[['loan_amnt','funded_amnt','Fund_diff', 'funded_amnt_inv','emp_length',
-            'delinq_2yrs','Cred_hist', 'open_acc', 'revol_bal','total_acc', 
-            'total_pymnt', 'total_pymnt_inv', 'total_rec_prncp','total_rec_int', 
-            'total_rec_late_fee', 'recoveries', 'collection_recovery_fee', 'last_pymnt_amnt',
-            'int_rate', 'installment', 'annual_inc', 'dti','revol_util', 'pub_rec_bankruptcies']]
+##2. Let's estimate the trend in the data using Parametric Regression
+x1 = time.pts
+x2 = time.pts^2
+lm.fit = lm(count~x1 + x2)
+summary(lm.fit)#to get the model fit.
 
 
-'''
-As stated previously, the primary goal of visualization for classification 
-problems is to understand which features are useful for class separation. 
+###Looking for a trend
+count.fit.lm = ts(fitted(lm.fit), start=c(2007,6), frequency=12)
+ts.plot(count, ylab="Monthly Loan Counts")#plotting the trend
+lines(count.fit.lm, lwd=2, col="green")
+abline(count.fit.lm[1], 0, lwd=2, col="blue")
 
-Let's visualize the separation quality of numeric features:loan_status
-'''
-def plot_box(lending3, cols, col_x = 'loan_status'):
-    for col in cols:
-        sns.set_style("whitegrid")
-        sns.boxplot(col_x, col, data=lending3)
-        plt.xlabel(col_x) # Set text for the x axis
-        plt.ylabel(col)# Set text for y axis
-        plt.show()
-        
-num_cols=['loan_amnt', 'funded_amnt', 'Fund_diff', 'funded_amnt_inv', 'int_rate',
-         'installment', 'annual_inc', 'dti', 'delinq_2yrs', 'Cred_hist', 
-         'inq_last_6mths', 'open_acc', 'pub_rec', 'revol_bal', 'revol_util', 
-         'total_acc', 'total_acc', 'total_pymnt', 'total_pymnt_inv', 
-         'total_rec_prncp', 'total_rec_int','total_rec_late_fee', 'recoveries',
-         'collection_recovery_fee', 'last_pymnt_amnt', 'pub_rec_bankruptcies']
-plot_box(lending3, num_cols)
+########################################################################################################################
+############  FITTING TREND USING NON-PARMETRIC REGRESSION#############################
+#3.Estimating the trend using Local Polynomial Regression and Splines Regression.
 
-'''
-From the created plots, which two features seem to separate the good and bad 
-credits?
-I used the violin plots for further illustration.'''
-'''*****Violin Plots******'''
-def plot_violin(lending3, cols, col_x = 'loan_status'):
-    for col in cols:
-        sns.set_style("whitegrid")
-        sns.violinplot(col_x, col, data=lending3)
-        plt.xlabel(col_x) # Set text for the x axis
-        plt.ylabel(col)# Set text for y axis
-        plt.show()
-plot_violin(lending3, num_cols)
+##i) Trend estimation using Local Polynomial Regression:
+loc.fit = loess(count~time.pts)
+
+  #Transforming the fitted values into a time series 
+  #using the ts() command as follows:
+count.fit.loc = ts(fitted(loc.fit), start=c(2007,6), frequency=12)
+
+##ii) Trend estimation using Spline Regression:
+library(nlme) #this package has to be uploaded before mgcv
+library(mgcv)
+
+      #I use s() in the gam() command to specify that I want a spline fit. 
+      #If I dont specify that, gam()will fit a linear model in the time points.
+gam.fit = gam(count~s(time.pts))
+
+      #Now we can transform the fitted values of the model into a time series using ts() 
+count.fit.gam = ts(fitted(gam.fit), start=c(2007,6), frequency=12)
+
+
+#iii) Looking for a trend in the data
+      #Now we can overlay the fitted trends from the 2 models on the observed time series
+ts.plot(count, ylab="Loan Count")
+lines(count.fit.loc, lwd=2, col="brown")
+lines(count.fit.gam, lwd=2, col="red")
+abline(count.fit.loc[1],0, lwd=2, col="blue")
+
+==========================================
+#Comparing all the estimated trends: 
+   #1. Moving average, 
+   #2. Parametric Quadratic, 
+   #3. Non-parametric:
+      #i) Local Polynomial Regression 
+      #ii)Splines Regression
+
+all.val = c(count.fit.mav, count.fit.lm, count.fit.gam, count.fit.loc)
+ylim = c(min(all.val), max(all.val))
+
+#Plotting the trends along with the legend command which allows the identification of the lines corresponding to 
+#the trend estimation method:
+ts.plot(count.fit.lm, lwd=2, col="green", ylim=ylim, ylab="Loan Counts")
+lines(count.fit.mav, lwd=2, col="purple")
+lines(count.fit.gam, lwd=2, col="red")
+lines(count.fit.loc, lwd=2, col="brown")
+legend(x=1900, y=64, legend=c("MAV", "LM", "GAM", "LOESS"), lty=1, col=c("purple","green","red","brown"))
+
+===================================================================================================================
+################ TREND AND SEASONALITY ESTIMATION #########################
+
+#Loading the library:
+library(TSA)
+
+   #Estimating Seasonality using seasonal means Model.
+month=season(count)
+
+   ## Estimate seasonality using ANOVA approach
+month = season(temp)
+
+   #Let's drop January since we'll have an intercept in the model.
+model1 = lm(temp~month) #Seasonal Means model with an intercept
+summary(model1)
+
+
+
+
+## Drop January (model with intercept)
+model1 = lm(temp~month)
+summary(model1)
+
+## All seasonal mean effects (model without intercept)
+model2 = lm(temp~month-1)
+summary(model2)
+
+## Estimate seasonality using cos-sin model
+har=harmonic(temp,1)
+model3=lm(temp~har)
+summary(model3)
+har2=harmonic(temp,2)
+model4=lm(temp~har2)
+summary(model4)
+
+## Compare Seasonality Estimates
+## Seasonal Means Model
+st1 = coef(model2)
+## Cos-Sin Model
+st2 = fitted(model4)[1:12]
+plot(1:12,st1,lwd=2,type="l",xlab="Month",ylab="Seasonality")
+lines(1:12,st2,lwd=2, col="brown")
+
+################ TREND AND SEASONALITY ESTIMATION #########################
+## Using linear regression
+
+## Fit a parametric model for both trend and seasonality
+x1 = time.pts
+x2 = time.pts^2
+har2=harmonic(temp,2)
+lm.fit = lm(temp~x1+x2+har2)
+summary(lm.fit)
+dif.fit.lm = ts((temp-fitted(lm.fit)),start=1879,frequency=12)
+ts.plot(dif.fit.lm,ylab="Residual Process")
+
+## Fit a non-parametric model for trend and linear model for seasonality
+gam.fit = gam(temp~s(time.pts)+har2)
+dif.fit.gam = ts((temp-fitted(gam.fit)),start=1879,frequency=12)
+ts.plot(dif.fit.gam,ylab="Residual Process")
+
+## Compare approaches 
+ts.plot(dif.fit.lm,ylab="Residual Process",col="brown")
+lines(dif.fit.gam,col="blue")
+
+acf(temp,lag.max=12*4,main="")
+acf(dif.fit.lm,lag.max=12*4,main="")
+acf(dif.fit.gam,lag.max=12*4,main="")
+
+
